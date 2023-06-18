@@ -1,0 +1,35 @@
+version: '2'
+services:
+  influxdb:
+    image: influxdb:2.7.1
+    ports:
+      - '8086:8086'
+    volumes:
+      - influxdb-storage:/var/lib/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=123456789
+      - DOCKER_INFLUXDB_INIT_ORG=my-org
+      - DOCKER_INFLUXDB_INIT_BUCKET=bitcoin
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=my-super-secret-auth-token
+  grafana:
+    image: grafana/grafana:9.5.3
+    ports:
+      - '3000:3000'
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./datasources:/etc/grafana/provisioning/datasources
+      - ./dashboards/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml
+      - ./dashboards/json:/var/lib/grafana/dashboards
+    depends_on:
+      - influxdb
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=123456789
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_ORG=my-org
+      - INFLUXDB_API_TOKEN=my-super-secret-auth-token
+volumes:
+  influxdb-storage:
+  grafana-storage:

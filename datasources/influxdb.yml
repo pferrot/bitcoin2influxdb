@@ -1,0 +1,16 @@
+apiVersion: 1
+
+datasources:
+  - name: bitcoin
+    uid: a0351a6f-4d33-4fcc-80b1-bde1119607ee
+    isDefault: true
+    type: influxdb
+    access: proxy
+    url: $INFLUXDB_URL
+    secureJsonData:
+      token: $INFLUXDB_API_TOKEN
+    jsonData:
+      version: Flux
+      organization: $INFLUXDB_ORG
+      defaultBucket: bitcoin
+      tlsSkipVerify: true
