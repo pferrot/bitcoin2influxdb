@@ -3,6 +3,7 @@ import csv
 import json
 import logging
 import os.path
+import re
 import requests
 import sys
 import time
@@ -28,6 +29,7 @@ sats_to_btc = 100_000_000
 timestamp_field = "ts"
 
 previous_for_wallet = {}
+previous_for_bank = {}
 
 logger = logging.getLogger("sat.computedevents")
 logging.basicConfig(level=logging.WARNING)
@@ -98,6 +100,7 @@ def fill_timestamps(timestamps, balance, wallet):
     global influxdb_write_api
     global influxdb_org
     global influxdb_bucket
+
     for t in timestamps:
         record = {
             "fields": {
@@ -110,7 +113,27 @@ def fill_timestamps(timestamps, balance, wallet):
             },
             "time": t
         }
+        #print("Filling timestamps for %s at %s with %d" % (wallet, t, balance))
         #print("Writing hour record %s" % json.dumps(record, indent = 4, sort_keys = True))
+        influxdb_write_api.write(influxdb_bucket, influxdb_org, record)
+
+def fill_timestamps_for_cash(timestamps, balance):
+    global influxdb_write_api
+    global influxdb_org
+    global influxdb_bucket
+
+    for t in timestamps:
+        record = {
+            "fields": {
+                "balance": balance,
+            },
+            "measurement": "cash",
+            "tags": {
+                "type": "hourly"
+            },
+            "time": t
+        }
+        #print(record)
         influxdb_write_api.write(influxdb_bucket, influxdb_org, record)
 
 def publish_to_influxdb(batch):
@@ -118,6 +141,7 @@ def publish_to_influxdb(batch):
     global influxdb_org
     global influxdb_bucket
     global previous_for_wallet
+    global previous_for_bank
 
     for i in batch:
         #print("Writing %s" % json.dumps(i, indent = 4, sort_keys = True))
@@ -132,13 +156,29 @@ def publish_to_influxdb(batch):
             balance = 0
             current_timestamp = i["time"]
             if wallet in previous_for_wallet:
-                balance = i["fields"]["balance"]
+                balance = previous_for_wallet[wallet]["fields"]["balance"]
                 previous_timestamp = previous_for_wallet[wallet]["time"]
 
             timestamps = get_timestamps_array(previous_timestamp, current_timestamp)
             fill_timestamps(timestamps=timestamps, balance=balance, wallet=wallet)
 
             previous_for_wallet[wallet] = i
+
+        if "bank" in i["tags"]:
+            # Arbitrary date, add 0 balance since then until first actuals sats.
+            previous_timestamp = "2017-01-01T00:00:00Z"
+            # Genesis block.
+            #previous_timestamp = "2009-01-03T18:15:05Z"
+            balance = 0.0
+            current_timestamp = i["time"]
+            if "fields" in previous_for_bank:
+                balance = previous_for_bank["fields"]["balance"]
+                previous_timestamp = previous_for_bank["time"]
+
+            timestamps = get_timestamps_array(previous_timestamp, current_timestamp)
+            fill_timestamps_for_cash(timestamps=timestamps, balance=balance)
+
+            previous_for_bank = i
 
 
 
@@ -175,6 +215,36 @@ def process_operation(txid, amount, fee, balance, wallet, timestamp_epoch_second
         print("Published %d operations to InfluxDB" % (len(influxdb_batch)))
         influxdb_batch = []
 
+def process_cash(amount, balance, bank, exchange, timestamp_iso_format):
+    global influxdb_batch
+    global influxdb_batch_size
+
+    fields = {
+        "amount": amount,
+        "balance": balance
+    }
+
+    tags = {
+        "bank": bank,
+    }
+
+    if exchange:
+        tags["exchange"] = exchange
+
+    j = {
+        "measurement": "cash",
+        "tags": tags,
+        "time": timestamp_iso_format,
+        "fields": fields
+    }
+
+    influxdb_batch.append(j)
+
+    if len(influxdb_batch) >= influxdb_batch_size:
+        publish_to_influxdb(influxdb_batch)
+        print("Published %d cash operations to InfluxDB" % (len(influxdb_batch)))
+        influxdb_batch = []
+
 
 def process_btc_price(price_usd, timestamp_iso_format, source):
     global influxdb_batch
@@ -203,6 +273,8 @@ def process_btc_price(price_usd, timestamp_iso_format, source):
         publish_to_influxdb(influxdb_batch)
         print("Published %d BTC prices to InfluxDB" % (len(influxdb_batch)))
         influxdb_batch = []
+
+
 
 def process_usd_to_chf(exchange_rate, timestamp_iso_format):
     global influxdb_batch
@@ -304,6 +376,7 @@ if __name__ == '__main__':
     file_group.add_argument('-ef', '--electrum_file', type=str, nargs='?', help='Path to Electrum CSV file')
     file_group.add_argument('-cf', '--coinmarketcap_file', type=str, nargs='?', help='CoinMarketCap BTC price file')
     file_group.add_argument('-ucf', '--usd_chf_file', type=str, nargs='?', help='USD to CHF file')
+    file_group.add_argument('-ciof', '--cash_in_out_file', type=str, nargs='?', help='Cash in/out file')
 
     parser.add_argument('-iu', '--influxdb_url', type=str, nargs=1, required=False, help='InfluxDB URL, default: %s' % influxdb_url_default)
     parser.add_argument('-it', '--influxdb_token', type=str, nargs=1, required=False, help='InfluxDB token, default: %s' % influxdb_token_default)
@@ -342,6 +415,10 @@ if __name__ == '__main__':
     if args.usd_chf_file:
         usd_chf_file = args.usd_chf_file
 
+    cash_in_out_file = None
+    if args.cash_in_out_file:
+        cash_in_out_file = args.cash_in_out_file
+
     if args.cache_folder:
         cache_folder = args.cache_folder
 
@@ -364,6 +441,8 @@ if __name__ == '__main__':
         print("CoinMarketCap BTC price file: %s" % coinmarketcap_file)
     if usd_chf_file:
         print("USD to CHF file: %s" % usd_chf_file)
+    if cash_in_out_file:
+        print("Cash in/out file: %s" % cash_in_out_file)
 
     print("Cache folder: %s" % cache_folder)
     print("InfluxDB URL: %s" % influxdb_url)
@@ -426,8 +505,11 @@ if __name__ == '__main__':
 
                     balances = {}
 
+                    block_time_previous = None
                     for row in rows:
                         txid = row[txid_index]
+                        print("--------")
+                        print("Txid: %s" % txid)
                         tx_json = get_tx_from_cache(txid)
                         if not tx_json:
                             tx_json = get_tx_json(txid)
@@ -436,10 +518,13 @@ if __name__ == '__main__':
 
                         fee = tx_json["fee"]
                         block_time = tx_json["status"]["block_time"]
+                        # Workaround to avoid loosing info in InfluxDB because multiple entries in the same wallet are
+                        # for the same transaction ID and timestamp (e.g. this happens when consolidating transaction outputs).
+                        if block_time_previous and block_time_previous == block_time:
+                            block_time = block_time + 1
+                        block_time_previous = block_time
                         amount = get_amount_func(row)
                         wallet = get_wallet_func(row, operations_csv_file)
-                        print("--------")
-                        print("Txid: %s" % txid)
                         print("Amount: %d" % amount)
                         print("Fee: %d" % fee)
                         print("Wallet: %s" % wallet)
@@ -463,7 +548,7 @@ if __name__ == '__main__':
                     print("Batch empty, nothing left to publish to InfluxDB")
 
                 for wallet in previous_for_wallet:
-                    print("Addding future hourly balances")
+                    print("Adding future hourly balances")
                     timestamps = get_timestamps_array(previous_for_wallet[wallet]["time"], "2025-01-01T00:00:00Z")
                     fill_timestamps(timestamps, previous_for_wallet[wallet]["fields"]["balance"], wallet)
 
@@ -473,9 +558,9 @@ if __name__ == '__main__':
                     rows = []
                     for row in reader:
                         # Skip first line.
-                        if row[3] != "close":
-                            btc_price = float(row[3])
-                            timestamp = row[6][1:-1]
+                        if row[4] != "close":
+                            btc_price = float(row[4])
+                            timestamp = row[7][1:-1]
                             #print("BTC price on %s: %f" % (timestamp, btc_price))
                             process_btc_price(price_usd=btc_price, timestamp_iso_format=timestamp, source="CoinMarketCap")
 
@@ -491,13 +576,15 @@ if __name__ == '__main__':
                     reader = csv.reader(f, delimiter=',', quoting=csv.QUOTE_NONE)
                     rows = []
                     for row in reader:
-                        rate = float(row[1])
-                        # Format is like 06/16/2023
-                        date = row[0]
-                        date_split = date.split("/")
-                        timestamp = "%s-%s-%sT00:00:00.000Z" % (date_split[2], date_split[0], date_split[1])
-                        #print("BTC price on %s: %f" % (timestamp, btc_price))
-                        process_usd_to_chf(exchange_rate=rate, timestamp_iso_format=timestamp)
+                        # Skip first line.
+                        if row[0] != "Date":
+                            rate = float(row[1])
+                            # Format is like 06/16/2023
+                            date = row[0]
+                            date_split = date.split("/")
+                            timestamp = "%s-%s-%sT00:00:00.000Z" % (date_split[2], date_split[0], date_split[1])
+                            #print("BTC price on %s: %f" % (timestamp, btc_price))
+                            process_usd_to_chf(exchange_rate=rate, timestamp_iso_format=timestamp)
 
                     if len(influxdb_batch) > 0:
                         print("Batch with %d exchange rates left, publishing to InfluxDB." % len(influxdb_batch))
@@ -505,5 +592,36 @@ if __name__ == '__main__':
                         influxdb_batch = []
                     else:
                         print("Batch empty, nothing left to publish to InfluxDB")
+
+            if cash_in_out_file:
+                with open(cash_in_out_file, newline='') as f:
+                    reader = csv.reader(f, delimiter=',', quoting=csv.QUOTE_NONE)
+                    rows = []
+                    balance = 0.0
+                    for row in reader:
+                        bank = row[1]
+                        amount_raw = row[3]
+                        # Only process relevent rows.
+                        if amount_raw != "" and bank != "":
+                            exchange = row[2]
+                            date_raw = row[0]
+                            date_split = date_raw.split(".")
+                            timestamp_iso_format = "%s-%s-%sT00:00:00.000Z" % (date_split[2], date_split[1], date_split[0])
+                            amount_string = re.sub(r'[a-zA-Z]+', "", amount_raw).replace("'", "").replace(" ", "")
+                            amount = float(amount_string)
+                            amount = -amount
+                            balance = balance + amount
+
+                            #print("Timestamp: %s, balance: %d" % (timestamp_iso_format, balance))
+                            process_cash(amount=amount, balance=balance, bank=bank, exchange=exchange, timestamp_iso_format=timestamp_iso_format)
+
+                    if len(influxdb_batch) > 0:
+                        print("Batch with %d cash operations left, publishing to InfluxDB." % len(influxdb_batch))
+                        publish_to_influxdb(influxdb_batch)
+                        influxdb_batch = []
+
+                # print("Adding future hourly cash balance")
+                # timestamps = get_timestamps_array(previous_for_bank["time"], "2025-01-01T00:00:00Z")
+                # fill_timestamps_for_cash(timestamps, previous_for_bank["fields"]["balance"])
 
 
