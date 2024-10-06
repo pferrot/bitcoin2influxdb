@@ -82,3 +82,4 @@ docker volume rm $(basename "$PWD")_influxdb-storage
 ## Resources
 
 * [USD/CHF](https://www.investing.com/currencies/usd-chf-historical-data)
+* [BTC price](https://coinmarketcap.com/currencies/bitcoin/)
