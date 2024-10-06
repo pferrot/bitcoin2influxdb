@@ -835,9 +835,206 @@
       "title": "Performance",
       "transformations": [],
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "a0351a6f-4d33-4fcc-80b1-bde1119607ee"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 100,
+            "gradientMode": "scheme",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "stepAfter",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 1,
+            "pointSize": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "#73BF69",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "currencyCHF"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "C"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Performance"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 15,
+        "w": 12,
+        "x": 12,
+        "y": 45
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": [
+            "last"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "a0351a6f-4d33-4fcc-80b1-bde1119607ee"
+          },
+          "hide": false,
+          "query": "from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"cash\")\n  |> filter(fn: (r) => r[\"_field\"] == \"balance\")\n  |> filter(fn: (r) => r[\"type\"] == \"hourly\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> toFloat()\n\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Invested",
+      "transformations": [],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "a0351a6f-4d33-4fcc-80b1-bde1119607ee"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "#73BF69",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "currencyCHF"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 15,
+        "w": 12,
+        "x": 12,
+        "y": 60
+      },
+      "id": 8,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.5.3",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "a0351a6f-4d33-4fcc-80b1-bde1119607ee"
+          },
+          "hide": true,
+          "query": "from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"cash\")\n  |> filter(fn: (r) => r[\"_field\"] == \"balance\")\n  |> filter(fn: (r) => r[\"type\"] == \"hourly\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> toFloat()\n\n",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "name": "Expression",
+            "type": "__expr__",
+            "uid": "__expr__"
+          },
+          "expression": "-$A / $D",
+          "hide": false,
+          "refId": "C",
+          "type": "math"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "a0351a6f-4d33-4fcc-80b1-bde1119607ee"
+          },
+          "hide": true,
+          "query": "from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bitcoin\")\n  |> filter(fn: (r) => r[\"_field\"] == \"balance\")\n  |> filter(fn: (r) => r[\"type\"] == \"hourly\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> pivot(rowKey:[\"_time\"], columnKey: [\"wallet\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({ r with _value: r[\"Bitcoin S\"] + r[\"Bitcoin X\"] + r[\"multisig_2_of_3_ledger_1\"]}))\n  |> drop(columns: [\"Bitcoin S\", \"Bitcoin X\", \"multisig_2_of_3_ledger_1\"])\n  |> toFloat()\n  |> map(fn: (r) => ({ r with _value: r._value / 100000000.0}))\n\n",
+          "refId": "D"
+        }
+      ],
+      "title": "Price per BTC",
+      "transformations": [],
+      "type": "stat"
     }
   ],
-  "refresh": "",
+  "refresh": false,
   "schemaVersion": 38,
   "style": "dark",
   "tags": [],
@@ -852,6 +1049,6 @@
   "timezone": "",
   "title": "Bitcoin",
   "uid": "bd938da5-50a2-4676-8c63-2f73062473fa",
-  "version": 3,
+  "version": 5,
   "weekStart": ""
 }
