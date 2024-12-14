@@ -473,8 +473,8 @@ if __name__ == '__main__':
                     rows.sort
 
                     def get_amount_ledger(row):
-                        amount = float(row[3])
-                        if row[2] == "OUT":
+                        amount = float(row[4])
+                        if row[3] == "OUT":
                             amount = -amount
                         return int(amount * sats_to_btc)
 
@@ -482,14 +482,14 @@ if __name__ == '__main__':
                         return int(float(row[3]) * sats_to_btc)
 
                     def get_wallet_ledger(row, file_name):
-                        return row[6]
+                        return row[7]
 
                     def get_wallet_electrum(row, file_name):
                         return file_name[len("electrum-history-"):-len(".csv")]
 
                     if is_ledger_csv_file:
                         timestamp_index = 0
-                        txid_index = 5
+                        txid_index = 6
                         get_amount_func = get_amount_ledger
                         get_wallet_func = get_wallet_ledger
                     elif is_electrum_csv_file:
