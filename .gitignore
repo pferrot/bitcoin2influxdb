@@ -3,3 +3,5 @@ cache
 
 *.csv
 *.sh
+
+.DS_Store
