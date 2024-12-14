@@ -80,32 +80,7 @@
           },
           "unit": "currencyBTC"
         },
-        "overrides": [
-          {
-            "__systemRef": "hideSeriesFrom",
-            "matcher": {
-              "id": "byNames",
-              "options": {
-                "mode": "exclude",
-                "names": [
-                  "balance hourly"
-                ],
-                "prefix": "All except:",
-                "readOnly": true
-              }
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": true
-                }
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 15,
@@ -134,7 +109,7 @@
             "type": "influxdb",
             "uid": "a0351a6f-4d33-4fcc-80b1-bde1119607ee"
           },
-          "query": "from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bitcoin\")\n  |> filter(fn: (r) => r[\"_field\"] == \"balance\")\n  |> filter(fn: (r) => r[\"type\"] == \"hourly\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> pivot(rowKey:[\"_time\"], columnKey: [\"wallet\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({ r with _value: r[\"Bitcoin S\"] + r[\"Bitcoin X\"] + r[\"multisig_2_of_3_ledger_1\"]}))\n  |> drop(columns: [\"Bitcoin S\", \"Bitcoin X\", \"multisig_2_of_3_ledger_1\"])\n  |> toFloat()\n  |> map(fn: (r) => ({ r with _value: r._value / 100000000.0}))\n\n",
+          "query": "from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bitcoin\")\n  |> filter(fn: (r) => r[\"_field\"] == \"balance\")\n  |> filter(fn: (r) => r[\"type\"] == \"hourly\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> pivot(rowKey:[\"_time\"], columnKey: [\"wallet\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({ r with _value: r[\"Bitcoin S\"] + r[\"Bitcoin X\"] + r[\"multisig_2_of_3_ledger_1\"] + r[\"multisig_2_of_3_test_3\"]}))\n  |> drop(columns: [\"Bitcoin S\", \"Bitcoin X\", \"multisig_2_of_3_ledger_1\", \"multisig_2_of_3_test_3\"])\n  |> toFloat()\n  |> map(fn: (r) => ({ r with _value: r._value / 100000000.0}))\n\n",
           "refId": "A"
         }
       ],
@@ -350,7 +325,7 @@
             "type": "influxdb",
             "uid": "a0351a6f-4d33-4fcc-80b1-bde1119607ee"
           },
-          "query": "sats = from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bitcoin\")\n  |> filter(fn: (r) => r[\"_field\"] == \"balance\")\n  |> filter(fn: (r) => r[\"type\"] == \"hourly\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> pivot(rowKey:[\"_time\"], columnKey: [\"wallet\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({ r with _value: r[\"Bitcoin S\"] + r[\"Bitcoin X\"] + r[\"multisig_2_of_3_ledger_1\"]}))\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"what\", value: \"sats\")\n  |> toFloat()\n\nbtc_price_usd = from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bitcoin\")\n  |> filter(fn: (r) => r[\"_field\"] == \"btc_price_usd\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"what\", value: \"btc_price_usd\")\n\n\nunion(tables: [sats, btc_price_usd])\n|> pivot(rowKey: [\"_time\"], columnKey: [\"what\"], valueColumn: \"_value\")\n|> map(fn: (r) => ({ r with USD: r[\"sats\"] * r[\"btc_price_usd\"] / 100000000.0}))\n|> keep(columns: [\"_time\", \"USD\"])\n|> filter(fn: (r) => r.USD >= 0)",
+          "query": "sats = from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bitcoin\")\n  |> filter(fn: (r) => r[\"_field\"] == \"balance\")\n  |> filter(fn: (r) => r[\"type\"] == \"hourly\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> pivot(rowKey:[\"_time\"], columnKey: [\"wallet\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({ r with _value: r[\"Bitcoin S\"] + r[\"Bitcoin X\"] + r[\"multisig_2_of_3_ledger_1\"] + r[\"multisig_2_of_3_test_3\"]}))\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"what\", value: \"sats\")\n  |> toFloat()\n\nbtc_price_usd = from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bitcoin\")\n  |> filter(fn: (r) => r[\"_field\"] == \"btc_price_usd\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"what\", value: \"btc_price_usd\")\n\n\nunion(tables: [sats, btc_price_usd])\n|> pivot(rowKey: [\"_time\"], columnKey: [\"what\"], valueColumn: \"_value\")\n|> map(fn: (r) => ({ r with USD: r[\"sats\"] * r[\"btc_price_usd\"] / 100000000.0}))\n|> keep(columns: [\"_time\", \"USD\"])\n|> filter(fn: (r) => r.USD >= 0)",
           "refId": "A"
         },
         {
@@ -359,7 +334,7 @@
             "uid": "a0351a6f-4d33-4fcc-80b1-bde1119607ee"
           },
           "hide": false,
-          "query": "sats = from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bitcoin\")\n  |> filter(fn: (r) => r[\"_field\"] == \"balance\")\n  |> filter(fn: (r) => r[\"type\"] == \"hourly\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> pivot(rowKey:[\"_time\"], columnKey: [\"wallet\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({ r with _value: r[\"Bitcoin S\"] + r[\"Bitcoin X\"] + r[\"multisig_2_of_3_ledger_1\"]}))\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"what\", value: \"sats\")\n  |> toFloat()\n\nbtc_price_usd = from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bitcoin\")\n  |> filter(fn: (r) => r[\"_field\"] == \"btc_price_usd\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"what\", value: \"btc_price_usd\")\n\nusd_chf = from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bitcoin\")\n  |> filter(fn: (r) => r[\"_field\"] == \"usd_chf\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"what\", value: \"usd_chf\")\n\n\nunion(tables: [sats, btc_price_usd, usd_chf])\n|> pivot(rowKey: [\"_time\"], columnKey: [\"what\"], valueColumn: \"_value\")\n|> map(fn: (r) => ({ r with CHF: r[\"sats\"] * r[\"btc_price_usd\"] / 100000000.0 * r[\"usd_chf\"]}))\n|> keep(columns: [\"_time\", \"CHF\"])\n|> filter(fn: (r) => r.CHF >= 0)",
+          "query": "sats = from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bitcoin\")\n  |> filter(fn: (r) => r[\"_field\"] == \"balance\")\n  |> filter(fn: (r) => r[\"type\"] == \"hourly\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> pivot(rowKey:[\"_time\"], columnKey: [\"wallet\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({ r with _value: r[\"Bitcoin S\"] + r[\"Bitcoin X\"] + r[\"multisig_2_of_3_ledger_1\"] + r[\"multisig_2_of_3_test_3\"]}))\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"what\", value: \"sats\")\n  |> toFloat()\n\nbtc_price_usd = from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bitcoin\")\n  |> filter(fn: (r) => r[\"_field\"] == \"btc_price_usd\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"what\", value: \"btc_price_usd\")\n\nusd_chf = from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bitcoin\")\n  |> filter(fn: (r) => r[\"_field\"] == \"usd_chf\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"what\", value: \"usd_chf\")\n\n\nunion(tables: [sats, btc_price_usd, usd_chf])\n|> pivot(rowKey: [\"_time\"], columnKey: [\"what\"], valueColumn: \"_value\")\n|> map(fn: (r) => ({ r with CHF: r[\"sats\"] * r[\"btc_price_usd\"] / 100000000.0 * r[\"usd_chf\"]}))\n|> keep(columns: [\"_time\", \"CHF\"])\n|> filter(fn: (r) => r.CHF >= 0)",
           "refId": "B"
         }
       ],
@@ -817,7 +792,7 @@
             "uid": "a0351a6f-4d33-4fcc-80b1-bde1119607ee"
           },
           "hide": true,
-          "query": "sats = from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bitcoin\")\n  |> filter(fn: (r) => r[\"_field\"] == \"balance\")\n  |> filter(fn: (r) => r[\"type\"] == \"hourly\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> pivot(rowKey:[\"_time\"], columnKey: [\"wallet\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({ r with _value: r[\"Bitcoin S\"] + r[\"Bitcoin X\"] + r[\"multisig_2_of_3_ledger_1\"]}))\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"what\", value: \"sats\")\n  |> toFloat()\n\nbtc_price_usd = from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bitcoin\")\n  |> filter(fn: (r) => r[\"_field\"] == \"btc_price_usd\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"what\", value: \"btc_price_usd\")\n\nusd_chf = from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bitcoin\")\n  |> filter(fn: (r) => r[\"_field\"] == \"usd_chf\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"what\", value: \"usd_chf\")\n\n\nunion(tables: [sats, btc_price_usd, usd_chf])\n|> pivot(rowKey: [\"_time\"], columnKey: [\"what\"], valueColumn: \"_value\")\n|> map(fn: (r) => ({ r with CHF: r[\"sats\"] * r[\"btc_price_usd\"] / 100000000.0 * r[\"usd_chf\"]}))\n|> keep(columns: [\"_time\", \"CHF\"])\n|> filter(fn: (r) => r.CHF >= 0)",
+          "query": "sats = from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bitcoin\")\n  |> filter(fn: (r) => r[\"_field\"] == \"balance\")\n  |> filter(fn: (r) => r[\"type\"] == \"hourly\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> pivot(rowKey:[\"_time\"], columnKey: [\"wallet\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({ r with _value: r[\"Bitcoin S\"] + r[\"Bitcoin X\"] + r[\"multisig_2_of_3_ledger_1\"] + r[\"multisig_2_of_3_test_3\"]}))\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"what\", value: \"sats\")\n  |> toFloat()\n\nbtc_price_usd = from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bitcoin\")\n  |> filter(fn: (r) => r[\"_field\"] == \"btc_price_usd\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"what\", value: \"btc_price_usd\")\n\nusd_chf = from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bitcoin\")\n  |> filter(fn: (r) => r[\"_field\"] == \"usd_chf\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"what\", value: \"usd_chf\")\n\n\nunion(tables: [sats, btc_price_usd, usd_chf])\n|> pivot(rowKey: [\"_time\"], columnKey: [\"what\"], valueColumn: \"_value\")\n|> map(fn: (r) => ({ r with CHF: r[\"sats\"] * r[\"btc_price_usd\"] / 100000000.0 * r[\"usd_chf\"]}))\n|> keep(columns: [\"_time\", \"CHF\"])\n|> filter(fn: (r) => r.CHF >= 0)",
           "refId": "B"
         },
         {
@@ -1025,7 +1000,7 @@
             "uid": "a0351a6f-4d33-4fcc-80b1-bde1119607ee"
           },
           "hide": true,
-          "query": "from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bitcoin\")\n  |> filter(fn: (r) => r[\"_field\"] == \"balance\")\n  |> filter(fn: (r) => r[\"type\"] == \"hourly\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> pivot(rowKey:[\"_time\"], columnKey: [\"wallet\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({ r with _value: r[\"Bitcoin S\"] + r[\"Bitcoin X\"] + r[\"multisig_2_of_3_ledger_1\"]}))\n  |> drop(columns: [\"Bitcoin S\", \"Bitcoin X\", \"multisig_2_of_3_ledger_1\"])\n  |> toFloat()\n  |> map(fn: (r) => ({ r with _value: r._value / 100000000.0}))\n\n",
+          "query": "from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bitcoin\")\n  |> filter(fn: (r) => r[\"_field\"] == \"balance\")\n  |> filter(fn: (r) => r[\"type\"] == \"hourly\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> pivot(rowKey:[\"_time\"], columnKey: [\"wallet\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({ r with _value: r[\"Bitcoin S\"] + r[\"Bitcoin X\"] + r[\"multisig_2_of_3_ledger_1\"] + r[\"multisig_2_of_3_test_3\"]}))\n  |> drop(columns: [\"Bitcoin S\", \"Bitcoin X\", \"multisig_2_of_3_ledger_1\", \"multisig_2_of_3_test_3\"])\n  |> toFloat()\n  |> map(fn: (r) => ({ r with _value: r._value / 100000000.0}))\n\n",
           "refId": "D"
         }
       ],
@@ -1034,7 +1009,7 @@
       "type": "stat"
     }
   ],
-  "refresh": false,
+  "refresh": "",
   "schemaVersion": 38,
   "style": "dark",
   "tags": [],
@@ -1049,6 +1024,6 @@
   "timezone": "",
   "title": "Bitcoin",
   "uid": "bd938da5-50a2-4676-8c63-2f73062473fa",
-  "version": 5,
+  "version": 2,
   "weekStart": ""
 }
