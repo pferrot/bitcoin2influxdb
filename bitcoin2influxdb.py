@@ -245,6 +245,32 @@ def process_cash(amount, balance, bank, exchange, timestamp_iso_format):
         print("Published %d cash operations to InfluxDB" % (len(influxdb_batch)))
         influxdb_batch = []
 
+def process_cagr(cagr, amount, timestamp_iso_format):
+    global influxdb_batch
+    global influxdb_batch_size
+
+    fields = {
+        "amount": amount,
+    }
+
+    tags = {
+        "cagr": cagr
+    }
+
+    j = {
+        "measurement": "cagr",
+        "tags": tags,
+        "time": timestamp_iso_format,
+        "fields": fields
+    }
+
+    influxdb_batch.append(j)
+
+    if len(influxdb_batch) >= influxdb_batch_size:
+        publish_to_influxdb(influxdb_batch)
+        print("Published %d CAGR data to InfluxDB" % (len(influxdb_batch)))
+        influxdb_batch = []
+
 
 def process_btc_price(price_usd, timestamp_iso_format, source):
     global influxdb_batch
@@ -377,6 +403,7 @@ if __name__ == '__main__':
     file_group.add_argument('-cf', '--coinmarketcap_file', type=str, nargs='?', help='CoinMarketCap BTC price file')
     file_group.add_argument('-ucf', '--usd_chf_file', type=str, nargs='?', help='USD to CHF file')
     file_group.add_argument('-ciof', '--cash_in_out_file', type=str, nargs='?', help='Cash in/out file')
+    file_group.add_argument('-cagrf', '--cagr_file', type=str, nargs='?', help='CAGR simulation file file')
 
     parser.add_argument('-iu', '--influxdb_url', type=str, nargs=1, required=False, help='InfluxDB URL, default: %s' % influxdb_url_default)
     parser.add_argument('-it', '--influxdb_token', type=str, nargs=1, required=False, help='InfluxDB token, default: %s' % influxdb_token_default)
@@ -419,6 +446,10 @@ if __name__ == '__main__':
     if args.cash_in_out_file:
         cash_in_out_file = args.cash_in_out_file
 
+    cagr_file = None
+    if args.cagr_file:
+        cagr_file = args.cagr_file
+
     if args.cache_folder:
         cache_folder = args.cache_folder
 
@@ -443,6 +474,8 @@ if __name__ == '__main__':
         print("USD to CHF file: %s" % usd_chf_file)
     if cash_in_out_file:
         print("Cash in/out file: %s" % cash_in_out_file)
+    if cagr_file:
+        print("CAGR file: %s" % cagr_file)
 
     print("Cache folder: %s" % cache_folder)
     print("InfluxDB URL: %s" % influxdb_url)
@@ -617,6 +650,27 @@ if __name__ == '__main__':
 
                     if len(influxdb_batch) > 0:
                         print("Batch with %d cash operations left, publishing to InfluxDB." % len(influxdb_batch))
+                        publish_to_influxdb(influxdb_batch)
+                        influxdb_batch = []
+
+            if cagr_file:
+                with open(cagr_file, newline='') as f:
+                    reader = csv.reader(f, delimiter=',', quoting=csv.QUOTE_NONE)
+                    rows = []
+                    for row in reader:
+                        date_raw = row[0]
+                        amount_raw = row[1]
+                        # If the first column contains a date
+                        if re.match(r'\d{2}\.\d{2}\.\d{4}', date_raw):
+                            date_split = date_raw.split(".")
+                            timestamp_iso_format = "%s-%s-%sT00:00:00.000Z" % (date_split[2], date_split[1], date_split[0])
+                            amount_string = re.sub(r'[a-zA-Z]+', "", amount_raw).replace("'", "").replace(" ", "")
+                            amount = float(amount_string)
+
+                            process_cagr(cagr=cagr_file.split(".")[0], amount=amount, timestamp_iso_format=timestamp_iso_format)
+
+                    if len(influxdb_batch) > 0:
+                        print("Batch with %d CAGR data left, publishing to InfluxDB." % len(influxdb_batch))
                         publish_to_influxdb(influxdb_batch)
                         influxdb_batch = []
 

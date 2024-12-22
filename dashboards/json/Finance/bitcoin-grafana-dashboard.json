@@ -253,7 +253,7 @@
               "viz": false
             },
             "insertNulls": false,
-            "lineInterpolation": "stepAfter",
+            "lineInterpolation": "smooth",
             "lineWidth": 1,
             "pointSize": 1,
             "scaleDistribution": {
@@ -270,6 +270,8 @@
             }
           },
           "mappings": [],
+          "max": 500000,
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -299,6 +301,18 @@
                   "mode": "fixed"
                 }
               },
+              {
+                "id": "unit",
+                "value": "currencyCHF"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/.*CAGR.*/"
+            },
+            "properties": [
               {
                 "id": "unit",
                 "value": "currencyCHF"
@@ -346,9 +360,27 @@
           "hide": false,
           "query": "sats = from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bitcoin\")\n  |> filter(fn: (r) => r[\"_field\"] == \"balance\")\n  |> filter(fn: (r) => r[\"type\"] == \"hourly\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> pivot(rowKey:[\"_time\"], columnKey: [\"wallet\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({ r with _value: r[\"Bitcoin S\"] + r[\"Bitcoin X\"] + r[\"multisig_2_of_3_ledger_1\"] + r[\"multisig_2_of_3_test_3\"]}))\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"what\", value: \"sats\")\n  |> toFloat()\n\nbtc_price_usd = from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bitcoin\")\n  |> filter(fn: (r) => r[\"_field\"] == \"btc_price_usd\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"what\", value: \"btc_price_usd\")\n\nusd_chf = from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"bitcoin\")\n  |> filter(fn: (r) => r[\"_field\"] == \"usd_chf\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> set(key: \"what\", value: \"usd_chf\")\n\n\nunion(tables: [sats, btc_price_usd, usd_chf])\n|> pivot(rowKey: [\"_time\"], columnKey: [\"what\"], valueColumn: \"_value\")\n|> map(fn: (r) => ({ r with CHF: r[\"sats\"] * r[\"btc_price_usd\"] / 100000000.0 * r[\"usd_chf\"]}))\n|> keep(columns: [\"_time\", \"CHF\"])\n|> filter(fn: (r) => r.CHF >= 0)",
           "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "a0351a6f-4d33-4fcc-80b1-bde1119607ee"
+          },
+          "hide": false,
+          "query": "from(bucket: \"bitcoin\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"cagr\")\n  |> filter(fn: (r) => r[\"_field\"] == \"amount\")\n  |> group(columns: [\"_field\", \"_measurement\", \"cagr\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"last\")",
+          "refId": "C"
         }
       ],
       "title": "USD and CHF",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": ".*cagr_(.*)",
+            "renamePattern": "CAGR $1%"
+          }
+        }
+      ],
       "type": "timeseries"
     },
     {
@@ -962,7 +994,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red"
+                "color": "red",
+                "value": null
               },
               {
                 "color": "#73BF69",
@@ -986,6 +1019,7 @@
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
+        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
             "last"
@@ -993,9 +1027,11 @@
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
       },
-      "pluginVersion": "9.5.3",
+      "pluginVersion": "11.4.0",
       "targets": [
         {
           "datasource": {
@@ -1039,13 +1075,13 @@
     "list": []
   },
   "time": {
-    "from": "2021-01-01 00:00:00",
-    "to": "now"
+    "from": "2021-01-01T00:00:00.000Z",
+    "to": "2030-01-02T00:00:00.000Z"
   },
   "timepicker": {},
   "timezone": "",
   "title": "Bitcoin",
   "uid": "bd938da5-50a2-4676-8c63-2f73062473fa",
-  "version": 2,
+  "version": 6,
   "weekStart": ""
 }
